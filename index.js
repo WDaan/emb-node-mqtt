@@ -1,16 +1,28 @@
 const mqtt = require('mqtt')
 
-const client = mqtt.connect('mqtt://10.0.0.12:1883')
+const GPIO = require('./gpio').default
 
+// connect
+const client = mqtt.connect('mqtt://test.mosquitto.org')
 client.on('connect', () => {
-    client.subscribe('test_receive', err => {
+    client.subscribe('SET_OUTPUT', err => {
         if (err) console.log(err)
     })
-
-    setInterval(() => {
-        client.publish('test_send', 'Hello mqtt')
-    }, 5000)
 })
+
+// when output gets clicked
 client.on('message', (topic, message) => {
     console.log(`topic: ${topic}, message: ${message}`)
+    if (String(message) === 'on') GPIO.relaisOn()
+    if (String(message) === 'off') GPIO.relaisOff()
 })
+
+// when input changes
+// eslint-disable-next-line no-restricted-syntax
+for (const [index, el] of GPIO.inputs.entries()) {
+    el.watch((err, value) => {
+        if (err) console.log(err)
+        console.log(value)
+        client.publish('CHANGE_DETECTED', JSON.stringify({ index, value }))
+    })
+}
